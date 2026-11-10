@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>紫微斗數 · 命盘</title>
+<style>
+/* ═══════════ Design Tokens ═══════════ */
+:root {
+  /* 表面 */
+  --bg: #0B0A08;
+  --s1: #12100C;
+  --s2: #17140E;
+  --s3: #1F1B13;
+  --s4: #272218;
+
+  /* 线条 */
+  --line: rgba(201, 162, 39, .09);
+  --line-2: rgba(201, 162, 39, .16);
+  --line-3: rgba(201, 162, 39, .28);
+
+  /* 文字层级 */
+  --ink: #EFE7D6;
+  --ink-2: #B3A68D;
+  --ink-3: #8C8070;
+  --ink-4: #655D4C;
+
+  /* 强调 */
+  --cinnabar: #C8503A;
+  --cinnabar-soft: #8E3A2A;
+  --gold: #C9A227;
+  --gold-soft: #A08A45;
+
+  /* 四化 */
+  --lu: #5C9A78;
+  --quan: #8B6BB0;
+  --ke: #5A85B8;
+  --ji: #C8503A;
+
+  /* 字体 */
+  --serif: "Songti SC", "STSong", "Noto Serif SC", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+
+  /* 动效 */
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --fast: 150ms;
+  --mid: 260ms;
+
+  /* 圆角 */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+::selection { background: rgba(200, 80, 58, .3); }
+
+/* ═══════════ App Bar ═══════════ */
+.appbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 0 24px; height: 58px;
+  background: rgba(11, 10, 8, .82);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+}
+.appbar-left { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.logo {
+  font-family: var(--serif); font-size: 15px; letter-spacing: 5px;
+  color: var(--gold); white-space: nowrap; font-weight: 500;
+}
+.crumb {
+  display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-3);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.crumb b { color: var(--ink-2); font-weight: 500; }
+.crumb .sep { color: var(--ink-4); }
+.crumb .live { color: var(--gold); }
+
+.appbar-right { display: flex; align-items: center; gap: 8px; }
+.btn {
+  height: 32px; padding: 0 13px; border-radius: var(--r-md);
+  font-size: 12px; color: var(--ink-2);
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--s3); color: var(--ink); }
+.btn:active { transform: scale(.97); }
+.btn.filled { background: var(--gold); color: #17130A; font-weight: 600; }
+.btn.filled:hover { background: #DDB53A; }
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ═══════════ Stage ═══════════ */
+.stage {
+  max-width: 1128px; margin: 0 auto;
+  padding: 22px 24px 56px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ═══════════ Board ═══════════ */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, minmax(150px, auto));
+  gap: 1px;
+  background: var(--line-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.cell {
+  position: relative;
+  background: var(--s1);
+  padding: 11px 13px 9px;
+  display: flex; flex-direction: column;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease);
+  min-width: 0;
+}
+.cell:hover { background: var(--s2); }
+.cell:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* 命宫：左侧朱砂标记 */
+.cell.is-soul { background: #16120B; box-shadow: inset 2px 0 0 var(--cinnabar); }
+/* 选中：整格提亮 + 内描边 */
+.cell.active { background: var(--s3); box-shadow: inset 0 0 0 1px var(--line-3); }
+.cell.is-soul.active { box-shadow: inset 2px 0 0 var(--cinnabar), inset 0 0 0 1px var(--line-3); }
+/* 流年命宫：右上角三角 */
+.cell.is-year-palace::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border: 6px solid transparent; border-top-color: var(--gold); border-right-color: var(--gold);
+  opacity: .8;
+}
+/* 流月命宫：顶部细线 */
+.cell.is-month-palace::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: var(--gold); opacity: .5;
+}
+
+/* 格头 */
+.cell-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 9px;
+}
+.pname {
+  font-family: var(--serif); font-size: 14px; letter-spacing: 1.5px;
+  color: var(--cinnabar); font-weight: 600;
+}
+.pname .tag {
+  display: inline-block; margin-left: 4px; padding: 0 3px;
+  font-family: var(--sans); font-size: 9px; font-weight: 400;
+  letter-spacing: 0; vertical-align: 1.5px;
+  color: var(--ink-3); border: 1px solid var(--line-2); border-radius: 2px;
+}
+.gz {
+  font-family: var(--serif); font-size: 10px; color: var(--ink-4);
+  letter-spacing: 1px; flex: none;
+}
+
+/* 星曜 */
+.stars { display: flex; flex-direction: column; gap: 4px; }
+.star {
+  display: flex; align-items: baseline; gap: 3px;
+  font-family: var(--serif); font-size: 18px; line-height: 1.2;
+  color: var(--ink); letter-spacing: .5px;
+  transition: color var(--fast) var(--ease);
+}
+.star .b { font-size: 9.5px; color: var(--ink-3); letter-spacing: 0; }
+.star.minor { font-size: 12.5px; color: var(--gold-soft); gap: 2px; }
+.star.minor .b { color: var(--ink-4); font-size: 9px; }
+.star-empty {
+  font-family: var(--serif); font-size: 10px; letter-spacing: 3px;
+  color: var(--ink-4); opacity: .75; padding: 6px 0 5px;
+}
+.cell:hover .star { color: #FBF5E6; }
+
+/* 四化 */
+.m {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  font-family: var(--sans); font-size: 9.5px; font-weight: 700;
+  color: #0B0A08; flex: none; align-self: center;
+}
+.m.lu { background: var(--lu); }
+.m.quan { background: var(--quan); }
+.m.ke { background: var(--ke); }
+.m.ji { background: var(--ji); }
+
+/* 杂曜 */
+.adjs {
+  margin-top: 12px; padding-top: 0;
+  font-size: 9.5px; line-height: 1.7; color: var(--ink-4);
+  letter-spacing: .3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 格脚 */
+.cell-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 9px; color: var(--ink-4); letter-spacing: .3px;
+}
+.cell-foot .yr {
+  flex: none; padding: 1px 4px; border-radius: 2px;
+  background: rgba(201, 162, 39, .08); color: var(--gold-soft);
+  font-size: 8.5px; white-space: nowrap;
+}
+
+/* ═══════════ 中宫 ═══════════ */
+.center {
+  grid-row: 2 / span 2; grid-column: 2 / span 2;
+  background: linear-gradient(155deg, #18150D 0%, #0E0C08 100%);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 20px 26px; gap: 0;
+  position: relative;
+}
+.center::before {
+  content: ''; position: absolute; inset: 9px;
+  border: 1px solid var(--line); border-radius: 2px; pointer-events: none;
+}
+
+.c-title {
+  font-family: var(--serif); font-size: 16px; letter-spacing: 10px;
+  color: var(--gold); text-align: center; margin-bottom: 14px; padding-left: 9px;
+}
+
+.c-row {
+  display: flex; align-items: baseline; justify-content: center; gap: 10px;
+  font-size: 11px; color: var(--ink-3); line-height: 1.9;
+}
+.c-row b { color: var(--ink-2); font-weight: 500; }
+
+/* 四柱：四个字一组 */
+.pillars {
+  display: flex; justify-content: center; gap: 18px; margin: 10px 0;
+}
+.pillar { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pillar .gz2 {
+  font-family: var(--serif); font-size: 19px; letter-spacing: 2px;
+  color: var(--ink); line-height: 1.1;
+}
+.pillar .lbl { font-size: 8.5px; color: var(--ink-4); letter-spacing: 1px; }
+.pillar.is-day .gz2 { color: var(--gold); }
+
+.c-sep { height: 1px; background: var(--line); margin: 12px 0; }
+
+/* 运限区 */
+.center-yun {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 11px; color: var(--ink-3); line-height: 1.6;
+  text-align: center;
+}
+.yun-line { display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+.yun-line .k {
+  font-size: 9px; color: var(--ink-4); letter-spacing: 1px;
+  padding: 1px 5px; border-radius: 2px; background: var(--s3);
+}
+.yun-line .v { font-family: var(--serif); font-size: 13px; color: var(--ink); letter-spacing: 1px; }
+.yun-line .h { font-size: 10px; color: var(--ink-4); }
+
+/* ═══════════ 运限条 ═══════════ */
+.timeline {
+  background: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.tl-row { display: flex; align-items: stretch; }
+.tl-row + .tl-row { border-top: 1px solid var(--line); }
+.tl-label {
+  width: 44px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; letter-spacing: 2px; color: var(--ink-4);
+  background: rgba(0, 0, 0, .22);
+  writing-mode: vertical-rl; text-orientation: upright;
+}
+.tl-cells {
+  display: flex; flex: 1; overflow-x: auto;
+  scrollbar-width: thin; scroll-behavior: smooth;
+}
+.tl-cells::-webkit-scrollbar { height: 4px; }
+.tl-cells::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
+
+.tl-cell {
+  flex: 1 0 68px; min-width: 68px;
+  padding: 8px 3px 7px;
+  border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  position: relative;
+}
+.tl-cell:first-child { border-left: 0; }
+.tl-cell:hover { background: var(--s3); }
+.tl-cell:active { transform: scale(.98); }
+.tl-cell .a {
+  font-family: var(--serif); font-size: 12px; color: var(--ink-2); letter-spacing: .5px;
+  white-space: nowrap;
+}
+.tl-cell .b { font-size: 9px; color: var(--ink-4); white-space: nowrap; }
+.tl-cell:hover .a { color: var(--ink); }
+
+.tl-cell.active { background: rgba(201, 162, 39, .1); }
+.tl-cell.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--gold);
+}
+.tl-cell.active .a { color: var(--gold); font-weight: 600; }
+.tl-cell.active .b { color: var(--gold-soft); }
+
+.tl-cell.now .a::after { content: '·今'; font-size: 8px; color: var(--cinnabar); }
+
+/* ═══════════ 图例 ═══════════ */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  font-size: 10px; color: var(--ink-3); letter-spacing: .2px;
+}
+.legend i {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  margin-right: 4px; vertical-align: -1px;
+}
+.legend i.soul { background: var(--cinnabar); }
+.legend i.year { border: 1px solid var(--gold); }
+.legend i.month { background: var(--gold); }
+
+/* ═══════════ 抽屉 ═══════════ */
+.scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(5, 4, 3, .6);
+  backdrop-filter: blur(2px);
+  opacity: 0; transition: opacity var(--mid) var(--ease);
+}
+.scrim.show { opacity: 1; }
+.scrim[hidden] { display: none; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 41;
+  width: min(380px, 92vw);
+  background: var(--s2);
+  border-left: 1px solid var(--line-2);
+  box-shadow: -24px 0 64px rgba(0, 0, 0, .55);
+  transform: translateX(100%);
+  transition: transform var(--mid) var(--ease);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.drawer.open { transform: translateX(0); }
+.drawer[hidden] { display: none; }
+
+.drawer-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px; flex: none;
+}
+.drawer-bar .t { font-size: 11px; color: var(--ink-4); letter-spacing: 3px; }
+.drawer-close {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); font-size: 15px;
+  transition: background var(--fast);
+}
+.drawer-close:hover { background: var(--s3); color: var(--ink); }
+
+.drawer-body { flex: 1; overflow-y: auto; padding: 0 20px 28px; }
+.drawer-body::-webkit-scrollbar { width: 4px; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
+
+/* 详情 */
+.d-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.d-name {
+  font-family: var(--serif); font-size: 26px; font-weight: 600;
+  color: var(--cinnabar); letter-spacing: 3px;
+}
+.d-gz { font-family: var(--serif); font-size: 13px; color: var(--ink-3); letter-spacing: 2px; }
+.d-meta { font-size: 10.5px; color: var(--ink-4); margin-bottom: 18px; line-height: 1.7; }
+
+.d-sec {
+  font-size: 9.5px; color: var(--ink-4); letter-spacing: 2.5px;
+  margin: 20px 0 10px; display: flex; align-items: center; gap: 8px;
+}
+.d-sec::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.star-card { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.star-card:last-child { border-bottom: 0; }
+.sc-head { display: flex; align-items: baseline; gap: 6px; }
+.sc-name { font-family: var(--serif); font-size: 17px; color: var(--ink); letter-spacing: 1px; }
+.sc-name .b { font-size: 10px; color: var(--ink-3); margin-left: 2px; }
+.sc-desc { font-size: 11.5px; line-height: 1.85; color: var(--ink-3); margin-top: 5px; }
+.star-card.minor .sc-name { font-size: 13.5px; color: var(--gold-soft); }
+.star-card.minor .sc-desc { font-size: 11px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 4px 9px; border-radius: 20px; font-size: 10.5px;
+  background: var(--s3); color: var(--ink-3); letter-spacing: .5px;
+}
+
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 11.5px; }
+.kv .k { color: var(--ink-4); }
+.kv .v { color: var(--ink-2); text-align: right; }
+
+/* ═══════════ 表单 ═══════════ */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(5, 4, 3, .74);
+  backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity var(--mid) var(--ease);
+}
+.overlay.show { opacity: 1; }
+.overlay[hidden] { display: none; }
+
+.sheet {
+  width: 100%; max-width: 430px;
+  background: var(--s2); border: 1px solid var(--line-2);
+  border-radius: var(--r-lg); padding: 24px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, .6);
+  transform: translateY(10px) scale(.99);
+  transition: transform var(--mid) var(--ease);
+  max-height: calc(100vh - 40px); overflow-y: auto;
+}
+.overlay.show .sheet { transform: translateY(0) scale(1); }
+
+.sheet-title {
+  font-size: 13px; color: var(--ink-2); letter-spacing: 1px; margin-bottom: 18px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.sheet-title span { font-size: 10px; color: var(--ink-4); letter-spacing: 0; }
+
+.f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.f-field { margin-bottom: 12px; }
+.f-field label {
+  display: block; font-size: 10px; color: var(--ink-4);
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+.f-field input, .f-field select {
+  width: 100%; height: 38px; padding: 0 11px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--bg); color: var(--ink);
+  font-size: 12.5px; font-family: inherit;
+  transition: border-color var(--fast), background var(--fast);
+}
+.f-field input:focus, .f-field select:focus {
+  outline: none; border-color: var(--gold-soft); background: #0E0C09;
+}
+.f-hint { font-size: 10px; color: var(--ink-4); line-height: 1.7; margin-bottom: 14px; }
+
+.f-actions { display: flex; gap: 8px; margin-top: 6px; }
+.f-actions .btn { height: 40px; flex: 1; justify-content: center; font-size: 12.5px; }
+.btn.ghost { border: 1px solid var(--line-2); }
+.btn.ghost:hover { border-color: var(--line-3); }
+
+.copy-area {
+  width: 100%; height: 240px; padding: 12px;
+  background: var(--bg); color: var(--ink-2);
+  border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px; line-height: 1.7; resize: vertical;
+}
+
+/* ═══════════ Toast ═══════════ */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translate(-50%, 16px);
+  background: var(--gold); color: #17130A;
+  padding: 10px 20px; border-radius: 22px;
+  font-size: 12px; font-weight: 600;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--mid) var(--ease), transform var(--mid) var(--ease);
+  z-index: 60; box-shadow: 0 8px 28px rgba(0, 0, 0, .4);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ═══════════ Loading / Empty ═══════════ */
+.loading, .empty-state {
+  grid-area: 1 / 1 / 5 / 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: var(--ink-4); font-size: 12px; letter-spacing: 1px;
+}
+.loading::after {
+  content: ''; width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--line-2); border-top-color: var(--gold);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.err { color: var(--cinnabar); font-size: 12px; line-height: 1.8; max-width: 340px; text-align: center; }
+
+/* ═══════════ 响应式 ═══════════ */
+@media (max-width: 900px) {
+  .stage { padding: 14px 12px 40px; }
+  .board { grid-template-rows: repeat(4, minmax(120px, auto)); }
+  .cell { padding: 8px 9px 7px; }
+  .cell-head { margin-bottom: 6px; }
+  .pname { font-size: 12px; letter-spacing: .5px; }
+  .gz { font-size: 9px; }
+  .star { font-size: 14px; }
+  .star.minor { font-size: 11px; }
+  .adjs { font-size: 8.5px; -webkit-line-clamp: 1; }
+  .cell-foot { font-size: 8px; margin-top: 4px; padding-top: 4px; }
+  .cell-foot .yr { font-size: 7.5px; padding: 1px 3px; }
+  .center { padding: 12px; }
+  .c-title { font-size: 12px; letter-spacing: 5px; margin-bottom: 8px; }
+  .c-row { font-size: 9.5px; gap: 6px; }
+  .pillars { gap: 10px; margin: 7px 0; }
+  .pillar .gz2 { font-size: 14px; }
+  .pillar .lbl { font-size: 7px; }
+  .center-yun { font-size: 9.5px; gap: 3px; }
+  .yun-line .v { font-size: 11px; }
+  .yun-line .k { font-size: 8px; padding: 0 3px; }
+  .c-sep { margin: 8px 0; }
+  .tl-cell { flex-basis: 60px; min-width: 60px; }
+  .appbar { padding: 0 14px; height: 52px; }
+  .logo { font-size: 13px; letter-spacing: 3px; }
+  .crumb { display: none; }
+  .btn { padding: 0 10px; font-size: 11px; }
+  .legend { display: none; }
+}
+@media (max-width: 560px) {
+  .board { grid-template-rows: repeat(4, minmax(108px, auto)); }
+  .star { font-size: 12.5px; }
+  .star.minor { font-size: 10px; }
+  .adjs { display: none; }
+  .center { padding: 8px; }
+  .c-title { display: none; }
+  .pillar .gz2 { font-size: 12px; letter-spacing: 1px; }
+  .pillars { gap: 8px; margin: 5px 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-left">
+    <div class="logo">紫微斗數</div>
+    <nav class="crumb" id="crumb"></nav>
+  </div>
+  <div class="appbar-right">
+    <button class="btn" id="btn-today">今天</button>
+    <button class="btn" id="btn-json">复制盘面</button>
+    <button class="btn filled" id="btn-edit">改生辰</button>
+  </div>
+</header>
+
+<main class="stage">
+  <div class="board" id="board">
+    <div class="loading">排盘中</div>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <div class="tl-row">
+      <div class="tl-label">大限</div>
+      <div class="tl-cells" id="tl-decadal"></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label">流年</div>
+      <div class="tl-cells" id="tl-year"></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label">流月</div>
+      <div class="tl-cells" id="tl-month"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="soul"></i>命宫</span>
+    <span><i class="year"></i>流年命宫</span>
+    <span><i class="month"></i>流月命宫</span>
+    <span>格内右下角流年宫名，左下角长生十二神 · 大限</span>
+  </div>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="宫位详情">
+  <div class="drawer-bar">
+    <span class="t">宫 位 详 情</span>
+    <button class="drawer-close" id="drawer-close" aria-label="关闭">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div id="detail"><div class="d-meta">点击盘面任一宫位</div></div>
+    <div id="summary"></div>
+  </div>
+</aside>
+
+<!-- 生辰表单 -->
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet">
+    <div class="sheet-title">输入生辰 <span>越准越好</span></div>
+
+    <div class="f-field">
+      <label>历法</label>
+      <select id="f-type">
+        <option value="solar">阳历（公历）</option>
+        <option value="lunar">农历</option>
+      </select>
+    </div>
+
+    <div class="f-row">
+      <div class="f-field">
+        <label>出生日期</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="f-field">
+        <label>时辰</label>
+        <select id="f-time"></select>
+      </div>
+    </div>
+
+    <div class="f-row">
+      <div class="f-field">
+        <label>具体时间（可选）</label>
+        <input type="time" id="f-hour">
+      </div>
+      <div class="f-field">
+        <label>性别</label>
+        <select id="f-gender"><option value="男">男</option><option value="女">女</option></select>
+      </div>
+    </div>
+
+    <div class="f-field">
+      <label>出生地（用于真太阳时校正）</label>
+      <select id="f-city"></select>
+    </div>
+
+    <div class="f-field" id="f-dst-wrap" style="display:none">
+      <label style="display:flex;gap:8px;align-items:center;color:var(--ink-2);font-size:11px">
+        <input type="checkbox" id="f-dst" style="width:auto;height:auto"> 扣除 1986–1991 中国夏令时
+      </label>
+    </div>
+
+    <div class="f-hint" id="f-hint">不选出生地则按北京时间排盘；选了会换算真太阳时。</div>
+
+    <div class="f-actions">
+      <button class="btn ghost" id="f-cancel">取消</button>
+      <button class="btn filled" id="f-submit">排盘</button>
+    </div>
+  </div>
+</div>
+
+<!-- 手动复制 -->
+<div class="overlay" id="copy-overlay" hidden>
+  <div class="sheet" style="max-width:620px">
+    <div class="sheet-title">手动复制 <span>浏览器拦了自动复制</span></div>
+    <div class="f-hint">内容已全选，按 ⌘C（Windows 按 Ctrl+C）即可；也可以下载成文件。</div>
+    <textarea id="copy-text" class="copy-area" readonly spellcheck="false"></textarea>
+    <div class="f-actions">
+      <button class="btn ghost" id="copy-download">下载 .json</button>
+      <button class="btn filled" id="copy-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════ 静态数据 ═══════════════ */
+const GRID = {
+  巳: [0, 0], 午: [0, 1], 未: [0, 2], 申: [0, 3],
+  辰: [1, 0], 酉: [1, 3],
+  卯: [2, 0], 戌: [2, 3],
+  寅: [3, 0], 丑: [3, 1], 子: [3, 2], 亥: [3, 3],
+};
+
+const TIMES = [
+  [0, '早子时 00–01'], [1, '丑时 01–03'], [2, '寅时 03–05'], [3, '卯时 05–07'],
+  [4, '辰时 07–09'], [5, '巳时 09–11'], [6, '午时 11–13'], [7, '未时 13–15'],
+  [8, '申时 15–17'], [9, '酉时 17–19'], [10, '戌时 19–21'], [11, '亥时 21–23'],
+  [12, '晚子时 23–24'],
+];
+
+const CITIES = [
+  ['', '不校正（北京时间）'],
+  ['116.41', '北京'], ['121.47', '上海'], ['117.20', '天津'], ['106.55', '重庆'],
+  ['113.26', '广州'], ['114.06', '深圳'], ['120.15', '杭州'], ['118.80', '南京'],
+  ['114.30', '武汉'], ['104.07', '成都'], ['108.94', '西安'], ['123.43', '沈阳'],
+  ['126.53', '哈尔滨'], ['125.32', '长春'], ['117.12', '济南'], ['113.62', '郑州'],
+  ['112.94', '长沙'], ['115.89', '南昌'], ['119.30', '福州'], ['118.09', '厦门'],
+  ['102.83', '昆明'], ['106.63', '贵阳'], ['108.37', '南宁'], ['110.20', '海口'],
+  ['112.55', '太原'], ['114.51', '石家庄'], ['111.75', '呼和浩特'], ['103.83', '兰州'],
+  ['101.78', '西宁'], ['106.23', '银川'], ['87.62', '乌鲁木齐'], ['91.11', '拉萨'],
+  ['117.28', '合肥'], ['120.62', '苏州'], ['120.38', '青岛'], ['121.61', '大连'],
+  ['114.17', '香港'], ['113.54', '澳门'],
+];
+
+const MONTH_NAMES = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
+
+/** 星曜释义：十四主星 + 常用辅煞曜（通行性质描述，不下吉凶断语） */
+const STAR_INFO = {
+  紫微: '帝座。尊贵自持，重体面，喜居主导之位。得左辅右弼、天魁天钺夹辅则格局成，孤君则贵而不实。',
+  天机: '智星。心思细密，善谋略与推演，多思多虑、易变动。宜策划、参谋、技术类工作。',
+  太阳: '日星。热情博爱，付出型，重名声。主贵不主富，落陷则劳而少功。男命重父，女命重夫。',
+  武曲: '财星。刚毅果决，重实际，执行力强，寡于言辞。宜金融、工程、军警，忌与文星同宫。',
+  天同: '福星。温和随性，重享受，感情丰沛，缺开创力。少年多辛劳，中年后渐入佳境。',
+  廉贞: '囚星。是非分明，善交际与政治手腕，次桃花。情绪起伏大，忌冲动。',
+  天府: '库星。稳重保守，善守成与理财，重体面。宜财务、行政、管理，缺开创魄力。',
+  太阴: '月星。温柔细腻，重感情，主富。宜文艺、策划、内务，女命尤佳，落陷则多愁。',
+  贪狼: '桃花星。多才多艺，欲望强，善交际应酬，主寿。宜业务、公关、才艺，忌沉迷。',
+  巨门: '暗星。口才佳，善辩，好钻研，多疑善察，主是非。宜口才、法律、研究。',
+  天相: '印星。稳重持中，重协调与服务，随和不争。辅佐型人才，宜行政、秘书、幕僚。',
+  天梁: '荫星。老成持重，有原则，善解厄扶弱，喜管闲事。宜医、法、教、宗教。',
+  七杀: '将星。刚烈独立，敢冲敢闯，独来独往。人生波动大，宜创业、军警、竞技。',
+  破军: '耗星。破旧立新，行动力强，不安于现状，耗损亦大。宜开创、变革、技术。',
+  左辅: '助力之星。主平辈与部属的扶持，增稳重与包容。',
+  右弼: '助力之星。主外来援助与贵人，增圆融与机变。',
+  文昌: '文星。主文书、考试、条理，正统学问之路。',
+  文曲: '文星。主口才、才艺、巧思，偏才艺与表达。',
+  天魁: '贵人星。主明处的提携，多为长辈、上级。',
+  天钺: '贵人星。主暗处的助力，多为间接、意外之助。',
+  禄存: '财禄之星。主积蓄与稳定财源，性格保守，忌冲破。',
+  天马: '驿马之星。主奔波、迁徙、外出，与禄存同宫为「禄马交驰」。',
+  擎羊: '刑星。主刑伤、竞争、刚烈，处事直接，易起冲突。',
+  陀罗: '忌星。主拖延、纠缠、暗耗，事倍功半，忌急躁。',
+  火星: '煞星。性急如火，爆发力强，来得快去得也快。',
+  铃星: '煞星。性烈而藏，阴火暗烧，记恨久，耐力强。',
+  地空: '空耗之星。主空想、落空、精神性，宜宗教哲学，忌投资。',
+  地劫: '劫耗之星。主破财、失落、变动，忌投机，宜技术钻研。',
+  天姚: '桃花星。主风流、人缘、艺术感，易生情感纠葛。',
+  天刑: '刑克之星。主自律、纪律、法律，亦主孤克与手术。',
+  红鸾: '喜庆之星。主婚恋、喜事、姻缘发动。',
+  天喜: '喜庆之星。主喜事、添丁、庆贺，与红鸾相对。',
+};
+
+/* ═══════════════ 状态 ═══════════════ */
+const state = {
+  birth: { type: 'solar', date: '1990-06-15', timeIndex: 6, exact: '', gender: '男', city: '' },
+  chart: null,
+  meta: null,
+  horoscope: null,
+  timeline: null,
+  decadalIdx: 0,
+  year: null,
+  month: null,
+  monthInfo: null,
+  monthCache: {},
+  reqId: 0,
+  selected: null,
+  drawerOpen: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* 降级 */ }
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) return true;
+  } catch { /* 降级 */ }
+
+  showCopyDialog(text);
+  return false;
+}
+
+function showCopyDialog(text) {
+  $('copy-text').value = text;
+  openOverlay('copy-overlay');
+  setTimeout(() => {
+    const ta = $('copy-text');
+    ta.focus();
+    ta.select();
+  }, 60);
+}
+
+function openOverlay(id) {
+  const el = $(id);
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('show'));
+}
+
+function closeOverlay(id) {
+  const el = $(id);
+  el.classList.remove('show');
+  setTimeout(() => { el.hidden = true; }, 260);
+}
+
+function buildBody() {
+  const b = state.birth;
+  const body = { type: b.type, date: b.date, gender: b.gender, language: 'zh-CN' };
+  if (b.exact) {
+    body.hour = Number(b.exact.slice(0, 2));
+    body.minute = Number(b.exact.slice(3, 5));
+  } else {
+    body.timeIndex = b.timeIndex;
+  }
+  if (b.city) body.trueSolar = { longitude: Number(b.city), dstAdjust: !!b.dst };
+  return body;
+}
+
+/* ═══════════════ 盘面渲染 ═══════════════ */
+function mutagenBadge(m) {
+  if (!m) return '';
+  const cls = { 禄: 'lu', 权: 'quan', 科: 'ke', 忌: 'ji' }[m] || '';
+  return `<span class="m ${cls}">${esc(m)}</span>`;
+}
+
+function starHtml(star, minor) {
+  const b = star.brightness ? `<span class="b">${esc(star.brightness)}</span>` : '';
+  return `<div class="star${minor ? ' minor' : ''}"><span class="nm">${esc(star.name)}</span>${b}${mutagenBadge(star.mutagen)}</div>`;
+}
+
+function cellHtml(palace, opts) {
+  const [row, col] = GRID[palace.earthlyBranch] || [0, 0];
+  const active = state.selected === palace.index ? ' active' : '';
+  const soulCls = palace.isSoulPalace ? ' is-soul' : '';
+  const yearCls = opts.yearPalaceIndex === palace.index ? ' is-year-palace' : '';
+  const monthCls = opts.monthPalaceIndex === palace.index ? ' is-month-palace' : '';
+
+  const majors = palace.majorStars || [];
+  const minors = palace.minorStars || [];
+  const adjs = (palace.adjectiveStars || []).map((s) => s.name);
+
+  const yearName = opts.yearPalaceNames?.[palace.index];
+  const bodyTag = palace.isBodyPalace ? '<span class="tag">身</span>' : '';
+
+  return `
+  <div class="cell${soulCls}${active}${yearCls}${monthCls}" data-index="${palace.index}" tabindex="0"
+       style="grid-row:${row + 1};grid-column:${col + 1}">
+    <div class="cell-head">
+      <span class="pname">${esc(palace.name)}${bodyTag}</span>
+      <span class="gz">${esc(palace.heavenlyStem)}${esc(palace.earthlyBranch)}</span>
+    </div>
+    <div class="stars">
+      ${majors.length ? majors.map((s) => starHtml(s, false)).join('') : '<div class="star-empty">空 宫</div>'}
+      ${minors.map((s) => starHtml(s, true)).join('')}
+    </div>
+    <div class="adjs">${adjs.join(' · ')}</div>
+    <div class="cell-foot">
+      <span>${esc(palace.changsheng12 || '')} · ${palace.decadal?.range?.[0] ?? ''}–${palace.decadal?.range?.[1] ?? ''}</span>
+      <span class="yr">${yearName ? `流年·${esc(yearName)}` : ''}</span>
+    </div>
+  </div>`;
+}
+
+function renderBoard() {
+  const chart = state.chart;
+  if (!chart) return;
+  const s = chart.summary;
+  const h = state.horoscope;
+
+  const opts = {
+    yearPalaceIndex: h?.yearly?.index,
+    monthPalaceIndex: state.monthInfo?.index,
+    yearPalaceNames: h?.yearly?.palaceNames,
+  };
+
+  const cells = chart.palaces.map((p) => cellHtml(p, opts)).join('');
+
+  const hostOf = (idx) => chart.palaces.find((p) => p.index === idx)?.name || '';
+  const mut = h
+    ? ['禄', '权', '科', '忌']
+        .map((k, i) => (h.yearly.mutagen?.[i] ? `${h.yearly.mutagen[i]}${k}` : ''))
+        .filter(Boolean).join(' ')
+    : '';
+
+  const mi = state.monthInfo;
+  const yunBlock = h ? `
+    <div class="c-sep"></div>
+    <div class="center-yun">
+      <div class="yun-line">
+        <span class="k">大限</span>
+        <span class="v">${esc(h.decadal.heavenlyStem)}${esc(h.decadal.earthlyBranch)}</span>
+        <span class="h">${esc(hostOf(h.decadal.index))} · 虚岁 ${esc(h.age.nominalAge)}</span>
+      </div>
+      <div class="yun-line">
+        <span class="k">流年</span>
+        <span class="v">${esc(h.yearly.heavenlyStem)}${esc(h.yearly.earthlyBranch)}</span>
+        <span class="h">${esc(hostOf(h.yearly.index))}</span>
+      </div>
+      ${mi ? `<div class="yun-line">
+        <span class="k">流月</span>
+        <span class="v">${esc(mi.ganZhi)}</span>
+        <span class="h">${esc(hostOf(mi.index))}</span>
+      </div>` : ''}
+      <div class="h" style="margin-top:2px;font-size:9.5px;opacity:.75">四化 ${esc(mut)}</div>
+    </div>` : '';
+
+  const ts = state.meta?.trueSolar;
+  const tsLine = ts
+    ? `<div class="c-row" style="font-size:9.5px;color:var(--gold-soft)">
+         真太阳时 ${esc(ts.originalHour)}${ts.estimated ? '起' : ''} → ${esc(ts.adjustedTime)}${ts.crossedDay ? ' · 跨日' : ''}
+       </div>
+       ${ts.warning ? `<div class="c-row" style="font-size:9px;color:var(--cinnabar);line-height:1.5;max-width:92%">⚠ ${esc(ts.warning)}</div>` : ''}`
+    : '';
+
+  const center = `
+    <div class="center">
+      <div class="c-title">紫微斗數</div>
+      <div class="c-row">
+        <b>${esc(s.solarDate)}</b>
+        <span>${esc(s.lunarDate)}</span>
+        <span>${esc(s.time)}</span>
+      </div>
+      ${tsLine}
+      <div class="pillars">
+        ${['年', '月', '日', '时']
+          .map((lbl, i) => {
+            const gz = s.chineseDate.split(' ')[i] || '';
+            return `<div class="pillar${i === 2 ? ' is-day' : ''}">
+              <span class="gz2">${esc(gz)}</span>
+              <span class="lbl">${lbl}</span>
+            </div>`;
+          })
+          .join('')}
+      </div>
+      <div class="c-row">
+        <span>${esc(s.fiveElementsClass)}</span>
+        <span style="color:var(--ink-4)">·</span>
+        <span>命主 ${esc(s.soul)}</span>
+        <span style="color:var(--ink-4)">·</span>
+        <span>身主 ${esc(s.body)}</span>
+      </div>
+      ${yunBlock}
+    </div>`;
+
+  $('board').innerHTML = cells + center;
+
+  $('board').querySelectorAll('.cell').forEach((el) => {
+    const pick = () => {
+      state.selected = Number(el.dataset.index);
+      renderBoard();
+      renderDetail();
+      openDrawer();
+    };
+    el.addEventListener('click', pick);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+    });
+  });
+}
+
+/* ═══════════════ 面包屑 ═══════════════ */
+function renderCrumb() {
+  if (!state.chart) { $('crumb').innerHTML = ''; return; }
+  const s = state.chart.summary;
+  const h = state.horoscope;
+  const d = state.timeline?.decadals?.[state.decadalIdx];
+
+  const parts = [`<b>${esc(s.gender)}命</b>`, esc(s.solarDate)];
+  if (d) parts.push(`<span class="live">${d.ageRange[0]}–${d.ageRange[1]}</span>`);
+  if (state.year) parts.push(`<span class="live">${state.year}</span>`);
+  if (state.month) parts.push(`${MONTH_NAMES[(state.month || 1) - 1] || ''}`);
+
+  $('crumb').innerHTML = parts.join('<span class="sep">›</span>');
+}
+
+/* ═══════════════ 运限时间轴 ═══════════════ */
+async function fetchTimeline(year) {
+  const res = await fetch('/api/v1/timeline', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ birth: buildBody(), year }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.message || '运限加载失败');
+  state.timeline = data.timeline;
+  state.monthCache[year] = data.timeline.months;
+  return data.timeline;
+}
+
+async function ensureMonths(year) {
+  if (state.monthCache[year]) return state.monthCache[year];
+  const tl = await fetchTimeline(year);
+  return tl.months;
+}
+
+function renderTimeline() {
+  const tl = state.timeline;
+  if (!tl) return;
+  const d = tl.decadals[state.decadalIdx];
+  if (!d) return;
+  const nowYear = new Date().getFullYear();
+
+  $('tl-decadal').innerHTML = tl.decadals.map((x, i) => {
+    const isNow = nowYear >= x.yearRange[0] && nowYear <= x.yearRange[1];
+    return `<button class="tl-cell${i === state.decadalIdx ? ' active' : ''}${isNow ? ' now' : ''}"
+              data-kind="decadal" data-idx="${i}">
+      <span class="a">${x.ageRange[0]}–${x.ageRange[1]}</span>
+      <span class="b">${esc(x.ganZhi)}</span>
+    </button>`;
+  }).join('');
+
+  $('tl-year').innerHTML = d.years.map((y) => `
+    <button class="tl-cell${y.year === state.year ? ' active' : ''}${y.year === nowYear ? ' now' : ''}"
+            data-kind="year" data-year="${y.year}">
+      <span class="a">${y.year}</span>
+      <span class="b">${esc(y.ganZhi)} ${y.age}岁</span>
+    </button>`).join('');
+
+  const months = state.monthCache[state.year] || [];
+  $('tl-month').innerHTML = months.map((m) => `
+    <button class="tl-cell${m.month === state.month ? ' active' : ''}"
+            data-kind="month" data-month="${m.month}">
+      <span class="a">${m.isLeapMonth ? '闰' : ''}${MONTH_NAMES[m.month - 1] || m.month}</span>
+      <span class="b">${esc(m.ganZhi)}</span>
+    </button>`).join('');
+}
+
+async function goToPeriod({ decadalIdx, year, month }) {
+  const reqId = ++state.reqId;
+  if (decadalIdx !== undefined) state.decadalIdx = decadalIdx;
+  if (year !== undefined) state.year = year;
+  if (month !== undefined) state.month = month;
+
+  renderTimeline();
+  renderCrumb();
+
+  if (state.year && !state.monthCache[state.year]) {
+    await ensureMonths(state.year);
+    if (reqId !== state.reqId) return;
+    renderTimeline();
+  }
+
+  syncMonthInfo();
+
+  if (year !== undefined) {
+    await loadHoroscope(state.year);
+    if (reqId !== state.reqId) return;
+  } else {
+    renderBoard();
+  }
+  renderCrumb();
+}
+
+function syncMonthInfo() {
+  const months = state.monthCache[state.year] || [];
+  state.monthInfo = months.find((m) => m.month === state.month) || null;
+}
+
+async function stepYear(delta) {
+  if (!state.timeline) return;
+  const next = (state.year || new Date().getFullYear()) + delta;
+  const idx = state.timeline.decadals.findIndex((d) => next >= d.yearRange[0] && next <= d.yearRange[1]);
+  if (idx < 0) return;
+  await goToPeriod({ decadalIdx: idx, year: next, month: 1 });
+}
+
+/* ═══════════════ 抽屉 ═══════════════ */
+function openDrawer() {
+  if (state.drawerOpen) return;
+  state.drawerOpen = true;
+  const scrim = $('scrim');
+  const drawer = $('drawer');
+  scrim.hidden = false;
+  drawer.hidden = false;
+  requestAnimationFrame(() => {
+    scrim.classList.add('show');
+    drawer.classList.add('open');
+  });
+}
+
+function closeDrawer() {
+  if (!state.drawerOpen) return;
+  state.drawerOpen = false;
+  const scrim = $('scrim');
+  const drawer = $('drawer');
+  scrim.classList.remove('show');
+  drawer.classList.remove('open');
+  setTimeout(() => {
+    scrim.hidden = true;
+    drawer.hidden = true;
+  }, 260);
+}
+
+/* ═══════════════ 详情 ═══════════════ */
+function renderDetail() {
+  const chart = state.chart;
+  if (!chart) return;
+  const palace = chart.palaces.find((p) => p.index === state.selected);
+  if (!palace) return;
+
+  const majors = palace.majorStars || [];
+  const minors = palace.minorStars || [];
+  const adjs = palace.adjectiveStars || [];
+
+  const card = (star, minor) => {
+    const info = STAR_INFO[star.name];
+    const b = star.brightness ? `<span class="b">${esc(star.brightness)}</span>` : '';
+    const m = star.mutagen ? mutagenBadge(star.mutagen) : '';
+    return `<div class="star-card${minor ? ' minor' : ''}">
+      <div class="sc-head"><span class="sc-name">${esc(star.name)}${b}</span>${m}</div>
+      ${info ? `<div class="sc-desc">${esc(info)}</div>` : ''}
+    </div>`;
+  };
+
+  const trine = (palace.trineAndOpposite || []).map((b) => `<span class="chip">${esc(b)}</span>`).join('');
+
+  $('detail').innerHTML = `
+    <div class="d-head">
+      <span class="d-name">${esc(palace.name)}</span>
+      <span class="d-gz">${esc(palace.heavenlyStem)}${esc(palace.earthlyBranch)}</span>
+    </div>
+    <div class="d-meta">
+      三方四正 ${esc((palace.trineAndOpposite || []).join('、'))} · 大限 ${esc(palace.decadal?.range?.[0] ?? '')}–${esc(palace.decadal?.range?.[1] ?? '')}
+    </div>
+
+    <div class="d-sec">主星</div>
+    ${majors.length ? majors.map((s) => card(s, false)).join('') : '<div class="star-card"><div class="sc-name" style="color:var(--ink-4)">空宫</div><div class="sc-desc">本宫无十四主星，须借对宫星曜论。</div></div>'}
+
+    ${minors.length ? `<div class="d-sec">辅星</div>${minors.map((s) => card(s, true)).join('')}` : ''}
+
+    ${adjs.length ? `<div class="d-sec">杂曜</div><div class="chips">${adjs.map((s) => `<span class="chip">${esc(s.name)}</span>`).join('')}</div>` : ''}
+  `;
+
+  const s = chart.summary;
+  const mu = s.mutagens || {};
+  const line = (k) => (mu[k] || []).map((x) => `${x.star}·${x.palace}`).join('、') || '—';
+
+  $('summary').innerHTML = `
+    <div class="d-sec">基本信息</div>
+    <div class="kv"><span class="k">阳历</span><span class="v">${esc(s.solarDate)}</span></div>
+    <div class="kv"><span class="k">农历</span><span class="v">${esc(s.lunarDate)}</span></div>
+    <div class="kv"><span class="k">四柱</span><span class="v">${esc(s.chineseDate)}</span></div>
+    <div class="kv"><span class="k">五行局</span><span class="v">${esc(s.fiveElementsClass)}</span></div>
+    <div class="kv"><span class="k">命宫</span><span class="v">${esc(s.soulPalace?.stem || '')}${esc(s.soulPalace?.branch || '')}</span></div>
+    <div class="kv"><span class="k">身宫</span><span class="v">${esc(s.bodyPalace?.name || '')}（${esc(s.bodyPalace?.branch || '')}）</span></div>
+    <div class="kv"><span class="k">命主 / 身主</span><span class="v">${esc(s.soul)} / ${esc(s.body)}</span></div>
+
+    <div class="d-sec">生年四化</div>
+    <div class="kv"><span class="k">化禄</span><span class="v">${esc(line('禄'))}</span></div>
+    <div class="kv"><span class="k">化权</span><span class="v">${esc(line('权'))}</span></div>
+    <div class="kv"><span class="k">化科</span><span class="v">${esc(line('科'))}</span></div>
+    <div class="kv"><span class="k">化忌</span><span class="v">${esc(line('忌'))}</span></div>
+  `;
+}
+
+/* ═══════════════ 请求 ═══════════════ */
+async function loadChart() {
+  $('board').innerHTML = `<div class="loading">排盘中</div>`;
+  try {
+    const res = await fetch('/api/v1/astrolabe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildBody()),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || '排盘失败');
+
+    state.chart = data.chart;
+    state.meta = data.meta;
+    state.horoscope = null;
+    state.timeline = null;
+    state.monthCache = {};
+    state.monthInfo = null;
+    state.year = null;
+
+    const soul = data.chart.palaces.find((p) => p.isSoulPalace);
+    state.selected = soul ? soul.index : 0;
+
+    renderBoard();
+    renderDetail();
+    closeDrawer();
+    await initTimeline();
+  } catch (err) {
+    $('board').innerHTML = `<div class="empty-state"><div class="err">${esc(err.message)}</div></div>`;
+  }
+}
+
+async function initTimeline() {
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  await fetchTimeline(thisYear);
+
+  let idx = state.timeline.decadals.findIndex((d) => thisYear >= d.yearRange[0] && thisYear <= d.yearRange[1]);
+  if (idx < 0) idx = 0;
+  const d = state.timeline.decadals[idx];
+
+  state.decadalIdx = idx;
+  state.year = thisYear >= d.yearRange[0] && thisYear <= d.yearRange[1] ? thisYear : d.years[0].year;
+  state.month = now.getMonth() + 1;
+
+  syncMonthInfo();
+  renderTimeline();
+  renderCrumb();
+  loadHoroscope(state.year);
+}
+
+async function loadHoroscope(year) {
+  if (!state.chart) return;
+  const y = year || new Date().getFullYear();
+  try {
+    const res = await fetch('/api/v1/horoscope', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        birth: buildBody(),
+        targetDate: `${y}-06-15`,
+        targetTimeIndex: 6,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || '运限计算失败');
+    state.horoscope = data.horoscope;
+    renderBoard();
+    renderDetail();
+    renderCrumb();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/* ═══════════════ 表单 ═══════════════ */
+function initForm() {
+  $('f-time').innerHTML = TIMES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+  $('f-city').innerHTML = CITIES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+
+  $('f-city').addEventListener('change', (e) => {
+    $('f-dst-wrap').style.display = e.target.value ? 'block' : 'none';
+    $('f-hint').textContent = e.target.value
+      ? '按出生地经度换算真太阳时。只填时辰时按区间起点估算，建议同时填具体时间。'
+      : '不选出生地则按北京时间排盘；选了会换算真太阳时。';
+  });
+
+  $('f-hour').addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (!v) return;
+    const h = Number(v.slice(0, 2));
+    $('f-time').value = String(h === 23 ? 12 : Math.floor((h + 1) / 2));
+  });
+
+  $('f-submit').addEventListener('click', () => {
+    const date = $('f-date').value;
+    if (!date) { toast('请选择出生日期'); return; }
+    state.birth = {
+      type: $('f-type').value,
+      date,
+      timeIndex: Number($('f-time').value),
+      exact: $('f-hour').value || '',
+      gender: $('f-gender').value,
+      city: $('f-city').value,
+      dst: $('f-dst').checked,
+    };
+    closeOverlay('overlay');
+    loadChart();
+  });
+
+  $('f-cancel').addEventListener('click', () => {
+    if (!state.chart) { toast('还没有命盘'); return; }
+    closeOverlay('overlay');
+  });
+}
+
+function openForm() {
+  const b = state.birth;
+  $('f-type').value = b.type;
+  $('f-date').value = b.date;
+  $('f-time').value = String(b.timeIndex);
+  $('f-hour').value = b.exact || '';
+  $('f-gender').value = b.gender;
+  $('f-city').value = b.city || '';
+  $('f-dst').checked = !!b.dst;
+  $('f-dst-wrap').style.display = b.city ? 'block' : 'none';
+  openOverlay('overlay');
+}
+
+/* ═══════════════ 事件 ═══════════════ */
+$('btn-edit').addEventListener('click', openForm);
+$('drawer-close').addEventListener('click', closeDrawer);
+$('scrim').addEventListener('click', closeDrawer);
+
+$('btn-today').addEventListener('click', () => {
+  if (!state.timeline) return;
+  const now = new Date();
+  const y = now.getFullYear();
+  const idx = state.timeline.decadals.findIndex((d) => y >= d.yearRange[0] && y <= d.yearRange[1]);
+  if (idx < 0) { toast('超出十二大限范围'); return; }
+  goToPeriod({ decadalIdx: idx, year: y, month: now.getMonth() + 1 });
+});
+
+$('btn-json').addEventListener('click', async () => {
+  if (!state.chart) { toast('还没有命盘'); return; }
+  const btn = $('btn-json');
+  const old = btn.textContent;
+  btn.textContent = '生成中';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/v1/compact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ birth: buildBody(), year: state.year || new Date().getFullYear() }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || '生成失败');
+    const ok = await copyText(JSON.stringify(data.compact));
+    if (ok) toast(`已复制 · ${data.chars} 字`);
+  } catch (err) {
+    toast('生成失败：' + err.message);
+  } finally {
+    btn.textContent = old;
+    btn.disabled = false;
+  }
+});
+
+$('timeline').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.tl-cell');
+  if (!btn || !state.timeline) return;
+
+  if (btn.dataset.kind === 'decadal') {
+    const idx = Number(btn.dataset.idx);
+    const d = state.timeline.decadals[idx];
+    const keep = d.years.some((y) => y.year === state.year);
+    await goToPeriod({
+      decadalIdx: idx,
+      year: keep ? state.year : d.years[0].year,
+      month: keep ? state.month : 1,
+    });
+    return;
+  }
+
+  if (btn.dataset.kind === 'year') {
+    await goToPeriod({ year: Number(btn.dataset.year), month: 1 });
+    return;
+  }
+
+  if (btn.dataset.kind === 'month') {
+    await goToPeriod({ month: Number(btn.dataset.month) });
+  }
+});
+
+$('copy-close').addEventListener('click', () => closeOverlay('copy-overlay'));
+
+$('copy-download').addEventListener('click', () => {
+  const blob = new Blob([$('copy-text').value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `紫微命盘-${state.birth.date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('已下载');
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!$('copy-overlay').hidden) { closeOverlay('copy-overlay'); return; }
+    if (!$('overlay').hidden) { closeOverlay('overlay'); return; }
+    if (state.drawerOpen) closeDrawer();
+  }
+  if (e.key === 'ArrowUp' && state.chart) { e.preventDefault(); stepYear(1); }
+  if (e.key === 'ArrowDown' && state.chart) { e.preventDefault(); stepYear(-1); }
+  if (e.key === 'ArrowLeft' && state.chart) { e.preventDefault(); stepMonth(-1); }
+  if (e.key === 'ArrowRight' && state.chart) { e.preventDefault(); stepMonth(1); }
+});
+
+async function stepMonth(delta) {
+  if (!state.timeline) return;
+  const months = state.monthCache[state.year] || [];
+  if (!months.length) return;
+  const i = months.findIndex((m) => m.month === state.month);
+  const next = months[(i + delta + months.length) % months.length];
+  if (next) await goToPeriod({ month: next.month });
+}
+
+/* ═══════════════ 启动 ═══════════════ */
+initForm();
+$('f-date').value = state.birth.date;
+$('f-time').value = String(state.birth.timeIndex);
+loadChart();
+</script>
+</body>
+</html>

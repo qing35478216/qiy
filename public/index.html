@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>紫微斗数排盘接口 · 本地调试</title>
+<style>
+  :root {
+    --bg: #14120f; --panel: #1d1a16; --line: #322d25; --ink: #ece5d8;
+    --muted: #9a8f7d; --accent: #c8553d; --accent-2: #d8a75a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { padding: 20px 24px 12px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 6px; font-size: 17px; letter-spacing: 1px; }
+  header p { margin: 0; font-size: 12px; color: var(--muted); }
+  header code { color: var(--accent-2); }
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px 40px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .field { margin-bottom: 13px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  input, select { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line);
+                  background: #14120f; color: var(--ink); font-size: 13px; font-family: inherit; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  button { width: 100%; padding: 10px; border: 0; border-radius: 6px; cursor: pointer;
+           background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; font-family: inherit; }
+  button:hover { background: #d4614a; }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted);
+                 font-weight: 400; margin-top: 8px; font-size: 12px; }
+  button.ghost:hover { color: var(--ink); border-color: var(--accent-2); }
+  .result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .result-head h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .badge { font-size: 11px; color: var(--muted); }
+  iframe { width: 100%; height: 720px; border: 1px solid var(--line); border-radius: 8px; background: #e9e2d3; }
+  pre { margin: 14px 0 0; padding: 14px; background: #100e0b; border: 1px solid var(--line);
+        border-radius: 8px; font-size: 11px; line-height: 1.6; max-height: 320px; overflow: auto;
+        color: #b9ae9c; white-space: pre-wrap; word-break: break-all; }
+  .empty { height: 720px; display: flex; align-items: center; justify-content: center;
+           border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 13px; }
+  .err { color: #e07a5f; }
+</style>
+</head>
+<body>
+<header>
+  <h1>紫微斗数排盘接口 · 本地调试台</h1>
+  <p>内核 iztro · 接口地址 <code>http://127.0.0.1:8787/api/v1/astrolabe</code></p>
+</header>
+
+<main>
+  <form class="panel" id="form">
+    <div class="field">
+      <label>历法</label>
+      <select id="type">
+        <option value="solar">阳历（公历）</option>
+        <option value="lunar">农历</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>出生日期</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label>出生时辰</label>
+        <select id="timeIndex"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>性别</label>
+        <select id="gender">
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>流派预设</label>
+        <select id="preset">
+          <option value="">默认</option>
+          <option value="wenmo">文墨天机口径</option>
+          <option value="zhongzhou">中州派安星</option>
+          <option value="lichun">立春分界</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>出生地（用于真太阳时校正，可不填）</label>
+      <select id="city">
+        <option value="">不校正（用钟表时间）</option>
+      </select>
+      <div class="hint">选定后按经度差与均时差换算真太阳时；1986–1991 年出生可勾选扣除夏令时。</div>
+    </div>
+
+    <div class="field" id="dstWrap" style="display:none">
+      <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink)">
+        <input type="checkbox" id="dstAdjust" style="width:auto"> 扣除 1986–1991 中国夏令时
+      </label>
+    </div>
+
+    <button type="button" id="run">排盘</button>
+    <button type="button" class="ghost" id="copy">复制等价 cURL</button>
+  </form>
+
+  <section>
+    <div class="result-head">
+      <h2>命盘预览</h2>
+      <span class="badge" id="badge"></span>
+    </div>
+    <div id="view"><div class="empty">填好出生信息后点「排盘」</div></div>
+    <pre id="json" hidden></pre>
+  </section>
+</main>
+
+<script>
+const CITIES = [
+  ['北京', 116.41], ['上海', 121.47], ['天津', 117.20], ['重庆', 106.55],
+  ['广州', 113.26], ['深圳', 114.06], ['杭州', 120.15], ['南京', 118.80],
+  ['武汉', 114.30], ['成都', 104.07], ['西安', 108.94], ['沈阳', 123.43],
+  ['哈尔滨', 126.53], ['长春', 125.32], ['济南', 117.12], ['郑州', 113.62],
+  ['长沙', 112.94], ['南昌', 115.89], ['福州', 119.30], ['厦门', 118.09],
+  ['昆明', 102.83], ['贵阳', 106.63], ['南宁', 108.37], ['海口', 110.20],
+  ['太原', 112.55], ['石家庄', 114.51], ['呼和浩特', 111.75], ['兰州', 103.83],
+  ['西宁', 101.78], ['银川', 106.23], ['乌鲁木齐', 87.62], ['拉萨', 91.11],
+  ['合肥', 117.28], ['苏州', 120.62], ['青岛', 120.38], ['大连', 121.61],
+  ['香港', 114.17], ['澳门', 113.54],
+];
+const TIMES = [
+  [0, '早子时 00:00-00:59'], [1, '丑时 01:00-02:59'], [2, '寅时 03:00-04:59'],
+  [3, '卯时 05:00-06:59'], [4, '辰时 07:00-08:59'], [5, '巳时 09:00-10:59'],
+  [6, '午时 11:00-12:59'], [7, '未时 13:00-14:59'], [8, '申时 15:00-16:59'],
+  [9, '酉时 17:00-18:59'], [10, '戌时 19:00-20:59'], [11, '亥时 21:00-22:59'],
+  [12, '晚子时 23:00-23:59'],
+];
+
+const $ = (id) => document.getElementById(id);
+$('timeIndex').innerHTML = TIMES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+$('timeIndex').value = '6';
+$('city').innerHTML += CITIES.map(([n, l]) => `<option value="${l}">${n}（东经 ${l}°）</option>`).join('');
+
+$('city').addEventListener('change', (e) => {
+  $('dstWrap').style.display = e.target.value ? 'block' : 'none';
+});
+
+function buildQuery() {
+  const q = new URLSearchParams();
+  q.set('type', $('type').value);
+  q.set('date', $('date').value);
+  q.set('timeIndex', $('timeIndex').value);
+  q.set('gender', $('gender').value);
+  if ($('preset').value) q.set('preset', $('preset').value);
+  const lon = $('city').value;
+  if (lon) {
+    q.set('longitude', lon);
+    if ($('dstAdjust').checked) q.set('dstAdjust', 'true');
+  }
+  return q;
+}
+
+$('run').addEventListener('click', async () => {
+  if (!$('date').value) { alert('请选择出生日期'); return; }
+  const q = buildQuery();
+  const view = $('view');
+  view.innerHTML = '<div class="empty">排盘中…</div>';
+  try {
+    const res = await fetch('/api/v1/astrolabe?' + q.toString());
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || '排盘失败');
+
+    const frame = document.createElement('iframe');
+    frame.src = '/api/v1/chart?' + q.toString();
+    view.innerHTML = '';
+    view.appendChild(frame);
+
+    $('json').hidden = false;
+    $('json').textContent = JSON.stringify(data, null, 2);
+    $('badge').textContent = `${data.meta.input.effectiveDate} ${data.meta.input.effectiveTimeName} · ${data.meta.config.algorithm}` +
+      (data.meta.trueSolar ? ` · 真太阳时偏移 ${data.meta.trueSolar.totalOffsetMinutes} 分钟` : '');
+  } catch (err) {
+    view.innerHTML = `<div class="empty err">${err.message}</div>`;
+    $('json').hidden = true;
+  }
+});
+
+$('copy').addEventListener('click', async () => {
+  const q = Object.fromEntries(buildQuery());
+  const body = {
+    type: q.type,
+    date: q.date,
+    timeIndex: Number(q.timeIndex),
+    gender: q.gender,
+    ...(q.preset ? { preset: q.preset } : {}),
+    ...(q.longitude ? { trueSolar: { longitude: Number(q.longitude), dstAdjust: q.dstAdjust === 'true' } } : {}),
+  };
+  const cmd = `curl -s -X POST http://127.0.0.1:8787/api/v1/astrolabe \\
+  -H 'Content-Type: application/json' \\
+  -d '${JSON.stringify(body)}'`;
+  await navigator.clipboard.writeText(cmd);
+  $('copy').textContent = '已复制';
+  setTimeout(() => { $('copy').textContent = '复制等价 cURL'; }, 1500);
+});
+
+$('date').value = '1990-06-15';
+</script>
+</body>
+</html>
