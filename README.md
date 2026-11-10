@@ -15,10 +15,12 @@ GET  /api/v1/chart       →  一张排好的命盘（浏览器直接看）
 ## 快速开始
 
 ```bash
-cd ~/WorkBuddy/qiy
+git clone git@github.com:qing35478216/qiy.git
+cd qiy
 npm install          # 首次
 npm start            # 默认 http://127.0.0.1:8787
 ```
+
 
 - <http://127.0.0.1:8787/app> —— **看盘页面**：填生辰出盘，点宫位从右侧抽屉看星曜与释义，底部运限条点选大限 / 流年 / 流月，↑↓ 换年、←→ 换月，右上角可复制精简盘面
 - <http://127.0.0.1:8787/> —— 接口调试台：看原始 JSON、复制 cURL
